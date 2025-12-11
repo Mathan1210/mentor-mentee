@@ -1,0 +1,398 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Advisor - Bulk Entry</title>
+  <style>
+    :root{
+      --blue:#1e56a0; --green:#0d9488; --muted:#6b7280; --border:#d3dce6;
+      --card:#fff;
+    }
+    body{font-family:Inter, Arial, sans-serif;background:linear-gradient(180deg,#f3f7ff,#eef9fb);margin:0;padding:18px}
+    .wrap{max-width:1000px;margin:0 auto}
+    .header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+    h1{margin:0;color:var(--blue);font-family:Georgia,serif}
+    .note{color:var(--muted)}
+    .box{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 10px 28px rgba(10,20,40,0.06);border:1px solid #e6eef3}
+    label{display:block;font-weight:700;margin-top:10px;color:#0f172a}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);margin-top:6px;font-size:14px}
+    textarea{min-height:80px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+    .btn{padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+    .btn-primary{background:var(--blue);color:white}
+    .btn-green{background:var(--green);color:white}
+    .btn-ghost{background:white;border:1px solid var(--border)}
+    .list{margin-top:16px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:8px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}
+    thead th{background:#f0f6ff;color:var(--blue);font-weight:800;text-align:center}
+    .small{font-size:13px;color:var(--muted)}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef6ff;color:var(--blue);font-weight:700}
+    .saved { background:#f7fffb; }
+    .unsaved { background:#fffaf6; }
+    .icon-btn{padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:white;cursor:pointer}
+    .flex-gap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    @media(max-width:860px){
+      .row, .row-3{grid-template-columns:1fr}
+      thead th{font-size:12px}
+      td{font-size:13px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <img src="ssec logo.png" alt="" width="400px">
+        
+      </div>
+      <div class="flex-gap">
+        <button class="btn btn-ghost" onclick="location.href='admin.html'">Go to Admin</button>
+        <button class="btn btn-ghost" onclick="location.href='student.html'">Student Portal</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3 style="margin:0 0 8px 0;color:var(--blue)">Advisor — Fill Student Details</h3>
+
+      <div id="formArea">
+        <div class="row">
+          <div>
+            <label>Mentor Name *</label>
+            <input id="mentorName" placeholder="MentorName"/>
+          </div>
+          <div>
+            <label>Branch *</label>
+            <select id="branch">
+               <option>IT</option><option>CSE</option><option>AIDS</option><option>AIML</option><option>CYBER</option><option>ECE</option><option>EEE</option><option>MECH</option>
+            <option>CIVIL</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Batch No *</label>
+            <input id="batchNo" placeholder="e.g. 257001" />
+          </div>
+          <div>
+            <label>Student Name *</label>
+            <input id="studentName" placeholder="Student full name" />
+          </div>
+        </div>
+
+        <div class="row-3">
+          <div>
+            <label>Semester *</label>
+            <select id="semester">
+              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option>
+            </select>
+          </div>
+          <div>
+            <label>Section *</label>
+            <input id="section" placeholder="A" />
+          </div>
+          <div>
+            <label>Exam</label>
+            <input id="cytest" placeholder="A1 / A2" />
+          </div>
+        </div>
+
+        <label>Mentor Comments</label>
+        <textarea id="mentorComments" placeholder="Mentor remarks about IA performance"></textarea>
+
+        <label>Mentor Counselling</label>
+        <textarea id="counselling" placeholder="Counselling given / suggestions"></textarea>
+
+        <div class="actions">
+          <button class="btn btn-primary" onclick="addToList()">Add to List</button>
+          <button class="btn btn-ghost" onclick="resetForm()">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIST -->
+    <div class="list box" style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;color:var(--blue)">Pending Entries</h3>
+        <div class="flex-gap">
+          <button class="btn btn-green" onclick="saveAll()">Save All to Server</button>
+          <button class="btn btn-ghost" onclick="clearAllLocal()">Clear Local</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;" id="listWrap">
+        <!-- table injected here -->
+      </div>
+
+      <div class="small" style="margin-top:10px;color:var(--muted)">Saved rows are highlighted; unsaved rows can be edited or removed.</div>
+    </div>
+
+  </div>
+
+<script>
+/*
+  Advisor bulk front-end logic
+  - Local list stored in localStorage key ADVISOR_PENDING_V1
+  - addToList(): add current form to list (unsaved)
+  - renderList(): render table with edit/delete/save per row
+  - saveRow(index): POST single row to /api/submissions, mark saved
+  - saveAll(): POST all unsaved rows
+  - editRow(index): load row into form for edit (and remove from list or update)
+*/
+
+const API = "http://localhost:4000/api";
+const LS_KEY = "ADVISOR_PENDING_V1";
+
+let list = loadListFromStorage();
+
+// DOM refs
+const mentorName = document.getElementById('mentorName');
+const branch = document.getElementById('branch');
+const batchNo = document.getElementById('batchNo');
+const studentName = document.getElementById('studentName');
+const semester = document.getElementById('semester');
+const sectionEl = document.getElementById('section');
+const cytest = document.getElementById('cytest');
+const mentorComments = document.getElementById('mentorComments');
+const counselling = document.getElementById('counselling');
+const listWrap = document.getElementById('listWrap');
+
+function loadListFromStorage(){
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e){ return []; }
+}
+
+function saveListToStorage(){
+  localStorage.setItem(LS_KEY, JSON.stringify(list));
+}
+
+// Validate form
+function validateForm(data){
+  if (!data.mentorName || !data.branch || !data.batchNo || !data.studentName || !data.semester || !data.section) {
+    return false;
+  }
+  return true;
+}
+
+function resetForm(){
+  mentorName.value = '';
+  branch.value = 'CSE';
+  batchNo.value = '';
+  studentName.value = '';
+  semester.value = '7';
+  sectionEl.value = '';
+  cytest.value = '';
+  mentorComments.value = '';
+  counselling.value = '';
+}
+
+// Add current form to local list
+function addToList(){
+  const item = {
+    mentorName: mentorName.value.trim(),
+    branch: branch.value,
+    batchNo: batchNo.value.trim(),
+    studentName: studentName.value.trim(),
+    semester: semester.value,
+    section: sectionEl.value.trim(),
+    cytest: cytest.value.trim(),
+    mentorComments: mentorComments.value.trim(),
+    counselling: counselling.value.trim(),
+    createdAtLocal: new Date().toISOString(),
+    saved: false,
+    savedAt: null,
+    _id: null // server id after saving
+  };
+
+  if (!validateForm(item)){
+    alert("Fill required fields: Mentor, Branch, Batch, Student, Semester, Section");
+    return;
+  }
+
+  list.unshift(item);
+  saveListToStorage();
+  renderList();
+  resetForm();
+}
+
+// Render pending list table
+function renderList(){
+  if (list.length === 0){
+    listWrap.innerHTML = '<div class="small" style="padding:12px;color:var(--muted)">No pending entries. Use the form above to add entries.</div>';
+    return;
+  }
+
+  let html = `<div style="overflow:auto"><table><thead><tr>
+    <th style="width:40px">S.No</th>
+    <th>Mentor</th><th>Branch</th><th>Batch</th><th>Student</th>
+    <th>Sem</th><th>Sec</th><th>Exam</th><th>Mentor Comments</th><th>Mentor Counselling</th>
+    <th style="width:190px">Actions</th>
+  </tr></thead><tbody>`;
+
+  list.forEach((r, idx) => {
+    const rowClass = r.saved ? 'saved' : 'unsaved';
+    const savedInfo = r.saved ? `<div class="small" style="color:green">Saved: ${new Date(r.savedAt).toLocaleString()}</div>` : `<div class="small" style="color:#b45309">Unsaved</div>`;
+    html += `<tr class="${rowClass}">
+      <td style="text-align:center">${idx+1}</td>
+      <td><strong>${escapeHtml(r.mentorName)}</strong>${r._id?'<div class="small">id:'+r._id+'</div>':''}</td>
+      <td>${escapeHtml(r.branch)}</td>
+      <td>${escapeHtml(r.batchNo)}</td>
+      <td>${escapeHtml(r.studentName)}</td>
+      <td style="text-align:center">${escapeHtml(r.semester)}</td>
+      <td style="text-align:center">${escapeHtml(r.section)}</td>
+      <td style="text-align:center">${escapeHtml(r.cytest)}</td>
+      <td>${escapeHtml(r.mentorComments)}</td>
+      <td>${escapeHtml(r.counselling)}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${r.saved ? '' : `<button class="icon-btn" onclick="saveRow(${idx})">Save</button>`}
+          <button class="icon-btn" onclick="editRow(${idx})">Edit</button>
+          <button class="icon-btn" onclick="deleteRow(${idx})">Delete</button>
+        </div>
+        ${savedInfo}
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  listWrap.innerHTML = html;
+}
+
+// Save single row (POST)
+async function saveRow(index){
+  const item = list[index];
+  if (!item) return;
+  if (item.saved) { alert('Already saved'); return; }
+
+  try {
+    const res = await fetch(`${API}/submissions`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        mentorName: item.mentorName,
+        branch: item.branch,
+        batchNo: item.batchNo,
+        studentName: item.studentName,
+        semester: item.semester,
+        section: item.section,
+        cytest: item.cytest,
+        mentorComments: item.mentorComments,
+        counselling: item.counselling
+      })
+    });
+    if (!res.ok) throw new Error('Save failed');
+    const body = await res.json();
+    // mark saved
+    item.saved = true;
+    item.savedAt = new Date().toISOString();
+    if (body.id || body._id) item._id = body.id || body._id;
+    saveListToStorage();
+    renderList();
+    alert('Saved to server');
+  } catch (err){
+    console.error(err);
+    alert('Save failed — check server');
+  }
+}
+
+// Save all unsaved rows
+async function saveAll(){
+  const unsaved = list.map((r,i) => ({r,i})).filter(x => !x.r.saved);
+  if (unsaved.length === 0) { alert('No unsaved rows'); return; }
+  if (!confirm(`Save ${unsaved.length} rows to server?`)) return;
+
+  for (const {r, i} of unsaved.reverse()){ // save oldest first (reverse due to unshift)
+    try {
+      const res = await fetch(`${API}/submissions`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          mentorName: r.mentorName,
+          branch: r.branch,
+          batchNo: r.batchNo,
+          studentName: r.studentName,
+          semester: r.semester,
+          section: r.section,
+          cytest: r.cytest,
+          mentorComments: r.mentorComments,
+          counselling: r.counselling
+        })
+      });
+      if (!res.ok) throw new Error('save failed');
+      const body = await res.json();
+      r.saved = true;
+      r.savedAt = new Date().toISOString();
+      if (body.id || body._id) r._id = body.id || body._id;
+      // small delay optional
+    } catch (e) {
+      console.error('saveAll error', e);
+      alert('Saving failed partway — stop and check server');
+      break;
+    }
+  }
+
+  saveListToStorage();
+  renderList();
+  alert('Save all complete (or partial if error)');
+}
+
+// Edit row: load into form and remove from list (so advisor edits then re-add)
+function editRow(index){
+  const r = list[index];
+  if (!r) return;
+  // populate form
+  mentorName.value = r.mentorName;
+  branch.value = r.branch;
+  batchNo.value = r.batchNo;
+  studentName.value = r.studentName;
+  semester.value = r.semester;
+  sectionEl.value = r.section;
+  cytest.value = r.cytest;
+  mentorComments.value = r.mentorComments;
+  counselling.value = r.counselling;
+  // delete row from list (so re-add as new)
+  list.splice(index,1);
+  saveListToStorage();
+  renderList();
+}
+
+// Delete row
+function deleteRow(index){
+  if (!confirm('Delete this entry?')) return;
+  list.splice(index,1);
+  saveListToStorage();
+  renderList();
+}
+
+// Clear all local pending
+function clearAllLocal(){
+  if (!confirm('Clear all local pending entries?')) return;
+  list = [];
+  saveListToStorage();
+  renderList();
+}
+
+// simple html escape
+function escapeHtml(s){
+  if (!s && s !== 0) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// initial render
+renderList();
+
+// optional: expose saveRow globally for onclick inline (already used)
+window.saveRow = saveRow;
+window.editRow = editRow;
+window.deleteRow = deleteRow;
+window.saveAll = saveAll;
+window.clearAllLocal = clearAllLocal;
+</script>
+</body>
+</html>

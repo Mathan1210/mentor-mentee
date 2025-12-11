@@ -1,0 +1,278 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Feedback — Select Reaction</title>
+  <style>
+    :root{
+      --accent:#0d9488;
+      --accent-2:#1e56a0;
+      --muted:#6b7280;
+      --card-bg:#ffffff;
+    }
+    body{font-family:Inter, Arial, sans-serif;background:linear-gradient(180deg,#f0f9f9, #f2fbff);margin:0;padding:18px}
+    .wrap{max-width:720px;margin:0 auto}
+    .box{background:var(--card-bg);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(8,15,30,0.06);border:1px solid #e6eef3}
+    h1{margin:0 0 10px;color:var(--accent-2)}
+    label{display:block;font-weight:700;margin-top:10px;color:#0f172a;font-size:14px}
+    input, textarea, select, button{font-size:14px}
+    input, textarea {width:100%;padding:10px;border-radius:8px;border:1px solid #d1dbe6;margin-top:6px}
+    textarea{min-height:100px;resize:vertical}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:none;background:var(--accent);color:white;cursor:pointer}
+    .btn:disabled{opacity:0.55;cursor:not-allowed}
+    .search-row{display:flex;gap:8px;margin-top:10px}
+    .search-row input{flex:1}
+    .results{margin-top:12px;display:grid;gap:10px}
+    .result-card{background:#fff;border-radius:10px;padding:12px;border:2px solid transparent;box-shadow:0 6px 18px rgba(10,20,30,0.04);display:flex;flex-direction:column;gap:8px}
+    .result-meta{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px}
+    .pill{padding:4px 8px;border-radius:999px;background:#eef6ff;color:var(--accent-2);font-weight:700;font-size:12px}
+
+    /* selected style & pulse */
+    .selected{
+      border-color: var(--accent);
+      box-shadow: 0 8px 26px rgba(13,148,136,0.18);
+      transform: translateY(-3px);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(13,148,136,0.18); }
+      70% { box-shadow: 0 0 0 10px rgba(13,148,136,0); }
+      100% { box-shadow: 0 0 0 0 rgba(13,148,136,0); }
+    }
+    .pulse {
+      animation: pulse 1200ms ease-out;
+    }
+
+    /* toast */
+    .toast {
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:28px;
+      background:rgba(15,23,42,0.95);
+      color:white;padding:10px 14px;border-radius:10px;box-shadow:0 6px 20px rgba(8,15,30,0.3);
+      opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;
+    }
+    .toast.show { opacity:1; transform: translateX(-50%) translateY(-6px); pointer-events:auto; }
+
+    /* responsive */
+    @media(max-width:480px){
+      .search-row{flex-direction:column}
+      .pill{font-size:11px;padding:3px 6px}
+      .btn{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="box">
+       <div>
+        <img src="ssec logo.png" alt="" width="400px">
+        
+      </div>
+      <h1>Student Feedback</h1>
+      <p class="muted">Search your record, select it, then submit feedback. Selecting a record will highlight it and prefill feedback if already present.</p>
+
+      <label for="searchQuery">Search by Student Name or Batch No</label>
+      <div class="search-row">
+        <input id="searchQuery" placeholder="e.g. Akshay or 257001" />
+        <button id="searchBtn" class="btn">Search</button>
+      </div>
+
+      <div id="searchResults" class="results" aria-live="polite"></div>
+
+      <label for="studentFeedback">Your Feedback</label>
+      <textarea id="studentFeedback" placeholder="Write your feedback here..."></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+        <button id="submitFeedback" class="btn" disabled>Submit Feedback</button>
+        <div id="selectedInfo" class="muted small">No record selected</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Record selected</div>
+
+<script>
+const API = "http://localhost:4000/api"; // change if different
+
+const searchBtn = document.getElementById('searchBtn');
+const searchQuery = document.getElementById('searchQuery');
+const searchResults = document.getElementById('searchResults');
+const studentFeedback = document.getElementById('studentFeedback');
+const submitBtn = document.getElementById('submitFeedback');
+const selectedInfo = document.getElementById('selectedInfo');
+const toast = document.getElementById('toast');
+
+let selectedRecordId = null;
+let lastSelectedCard = null;
+let toastTimer = null;
+
+// helper: show toast
+function showToast(text = "Record selected") {
+  toast.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> { toast.classList.remove('show'); }, 2200);
+}
+
+// helper: clear selection visuals
+function clearSelectionVisual() {
+  if (lastSelectedCard) {
+    lastSelectedCard.classList.remove('selected', 'pulse');
+    lastSelectedCard = null;
+  }
+}
+
+// Search handler
+searchBtn.addEventListener('click', async () => {
+  const q = searchQuery.value.trim();
+  if (!q) { alert('Enter student name or batch no to search'); return; }
+
+  // fetch filtered results from backend
+  try {
+    const res = await fetch(`${API}/submissions?search=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error('Search failed');
+    const data = await res.json();
+
+    renderResults(data);
+  } catch (err) {
+    console.error(err);
+    alert('Search failed, check server or network');
+  }
+});
+
+// render results
+function renderResults(items) {
+  searchResults.innerHTML = '';
+  selectedRecordId = null;
+  studentFeedback.value = '';
+  submitBtn.disabled = true;
+  selectedInfo.textContent = 'No record selected';
+  clearSelectionVisual();
+
+  if (!items || items.length === 0) {
+    searchResults.innerHTML = '<div class="muted">No matching records found</div>';
+    return;
+  }
+
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <div class="result-meta">
+        <div style="display:flex;flex-direction:column">
+          <div style="font-weight:800;color:var(--accent-2)">${escapeHtml(item.studentName || '-')}</div>
+          <div class="muted">${escapeHtml(item.branch || '-') } • Sem ${escapeHtml(item.semester || '-') } • Sec ${escapeHtml(item.section || '-') }</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div class="pill">${escapeHtml(item.batchNo || '-')}</div>
+          <div class="muted small">${new Date(item.createdAt).toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+        <div style="flex:1">
+          <div style="margin-top:8px;color:#0b1220"><strong>Mentor:</strong> ${escapeHtml(item.mentorName || '-')}</div>
+          <div style="margin-top:6px;color:#334155"><strong>Comments:</strong> ${escapeHtml(item.mentorComments || '-')}</div>
+        </div>
+        <div style="margin-left:12px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn selectBtn" data-id="${item._id}" data-feedback="${encodeURIComponent(item.studentFeedback || '')}">Select</button>
+          <button class="btn" onclick="viewDetails('${item._id}')">View</button>
+        </div>
+      </div>
+    `;
+    // attach select handler
+    const selectBtn = card.querySelector('.selectBtn');
+    selectBtn.addEventListener('click', () => handleSelect(card, selectBtn.dataset.id, decodeURIComponent(selectBtn.dataset.feedback)));
+
+    searchResults.appendChild(card);
+  });
+}
+
+// handle select reaction
+function handleSelect(cardEl, id, existingFeedback) {
+  // visual: clear previous, set selected
+  clearSelectionVisual();
+  cardEl.classList.add('selected', 'pulse');
+  lastSelectedCard = cardEl;
+  // remove pulse class after one cycle so it can repeat later
+  setTimeout(()=> { if (cardEl) cardEl.classList.remove('pulse'); }, 1200);
+
+  // store id and prefill feedback
+  selectedRecordId = id;
+  studentFeedback.value = existingFeedback || '';
+  submitBtn.disabled = false;
+  selectedInfo.textContent = 'Selected: ' + (cardEl.querySelector('div > div').innerText || id);
+
+  // scroll to feedback and focus
+  studentFeedback.scrollIntoView({behavior:'smooth', block:'center'});
+  studentFeedback.focus();
+
+  // small toast
+  showToast('Record selected — you can now submit feedback');
+}
+
+// view details (simple alert, can be upgraded to modal)
+async function viewDetails(id) {
+  try {
+    // fetch single record (API supports ?id=)
+    const res = await fetch(`${API}/submissions?id=${encodeURIComponent(id)}`);
+    const arr = await res.json();
+    const rec = Array.isArray(arr) ? arr[0] : arr;
+    if (!rec) return alert('Record not found');
+    alert(
+      `Student: ${rec.studentName}\nMentor: ${rec.mentorName}\nBranch: ${rec.branch}\nBatch: ${rec.batchNo}\nSem: ${rec.semester}\nSection: ${rec.section}\n\nMentor Comments:\n${rec.mentorComments}\n\nCounselling:\n${rec.counselling}\n\nCurrent Feedback:\n${rec.studentFeedback || '(none)'}`
+    );
+  } catch (err) {
+    console.error(err);
+    alert('Failed to load details');
+  }
+}
+
+// submit feedback
+submitBtn.addEventListener('click', async () => {
+  const fb = studentFeedback.value.trim();
+  if (!selectedRecordId) return alert('Select a record first');
+  if (!fb) return alert('Write some feedback before submitting');
+
+  try {
+    const res = await fetch(`${API}/submissions/${encodeURIComponent(selectedRecordId)}/feedback`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ studentFeedback: fb })
+    });
+    if (!res.ok) throw new Error('Submit failed');
+    showToast('Feedback submitted — thank you!');
+    // clear selection and keep feedback (optional)
+    // clearSelectionVisual();
+    // selectedRecordId = null;
+    // studentFeedback.value = '';
+  } catch (err) {
+    console.error(err);
+    alert('Failed to submit feedback — try again');
+  }
+});
+
+// helper: small html-escape to avoid XSS when injecting text
+function escapeHtml(s){
+  if (!s && s !== 0) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+// allow Enter key to trigger search when focused in search box
+searchQuery.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); searchBtn.click(); }
+});
+
+</script>
+</body>
+</html>

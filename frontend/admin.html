@@ -1,0 +1,315 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin View</title>
+
+<!-- html2pdf bundle (cdn) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
+<style>
+body { margin:0; font-family:Arial; background:#eef5ff; }
+
+.container {
+    max-width:1100px; margin:20px auto;
+    background:#fff; padding:20px;
+    border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.12);
+    border-top:6px solid #1e40af;
+}
+
+h2 { margin:0 0 20px 0; color:#1e40af; }
+
+.filterBox {
+    display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;
+    align-items:center;
+}
+
+select {
+    padding:10px; border-radius:6px; border:1px solid #cbd5e1;
+}
+
+.btn {
+    padding:10px 14px; border:none; border-radius:8px;
+    background:#1e40af; color:white; cursor:pointer;
+}
+
+.btn-green {
+    background:#059669;
+}
+
+.btn-purple {
+    background:#7c3aed;
+}
+
+.btn-orange {
+    background:#f97316;
+}
+
+table {
+    width:100%; border-collapse:collapse; margin-top:10px;
+}
+
+th {
+    background:#dbeafe; color:#1e40af;
+    padding:10px; font-size:13px;
+}
+
+td { padding:8px; border-bottom:1px solid #e2e8f0; }
+
+.card-list { display:none; }
+
+.record-card {
+    background:white; border-left:6px solid #1e40af;
+    padding:12px; margin-bottom:10px;
+    border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+.label { font-size:12px; color:#555; font-weight:bold; }
+.value { font-size:14px; }
+
+@media(max-width:900px) {
+    table { display:none; }
+    .card-list { display:block; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="exportArea">
+     <div>
+        <img src="ssec logo.png" alt="" width="400px">
+      </div>
+    <h2>Admin Report</h2>
+
+    <div class="filterBox">
+        <select id="filterBranch">
+            <option>IT</option><option>CSE</option><option>AIDS</option><option>AIML</option><option>CYBER</option><option>ECE</option><option>EEE</option><option>MECH</option>
+            <option>CIVIL</option>
+        </select>
+
+        <select id="filterSemester">
+            <option>1</option><option>2</option><option>3</option>
+            <option>4</option><option>5</option><option>6</option>
+            <option selected>7</option><option>8</option>
+        </select>
+
+        <button class="btn" onclick="loadData()">Refresh</button>
+
+        <!-- EXPORT CSV -->
+        <button class="btn btn-green" onclick="exportCSV()">Export CSV</button>
+
+        <!-- EXPORT PDF -->
+        <button class="btn btn-orange" onclick="exportPDF()">Export PDF</button>
+
+        <!-- GO TO ADVISOR PAGE -->
+        <button class="btn btn-purple" onclick="goAdvisor()">Go to Advisor</button>
+    </div>
+
+    <table id="reportTable">
+        <thead>
+            <tr>
+                <th>No</th><th>Mentor</th><th>Branch</th><th>Batch</th>
+                <th>Student</th><th>Sem</th><th>Sec</th><th>Exam</th>
+                <th>Mentor Comments</th><th>Mentor Counselling</th>
+                <th>Student Feedback</th>
+            </tr>
+        </thead>
+        <tbody id="reportBody"></tbody>
+    </table>
+
+    <div id="cardList" class="card-list"></div>
+</div>
+
+<script>
+const API = "http://localhost:4000/api";
+
+function goAdvisor() {
+    window.location.href = "advisor.html";
+}
+
+function exportCSV() {
+    const rows = document.querySelectorAll("#reportBody tr");
+    if (rows.length === 0) {
+        alert("No data to export!");
+        return;
+    }
+
+    let csv = "S.No,Mentor,Branch,Batch,Student,Sem,Sec,Exam,Mentor Comments,Mentor Counselling,Student Feedback,Time\n";
+
+    rows.forEach(r => {
+        let cols = r.querySelectorAll("td");
+        let line = [];
+        cols.forEach(td => line.push('"' + td.innerText.replace(/"/g, '""') + '"'));
+        csv += line.join(",") + "\n";
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "admin_report.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Export PDF using html2pdf.js
+ * - captures the visible table when on desktop
+ * - captures the card list when on mobile (cards shown by CSS)
+ */
+async function exportPDF() {
+    // Decide which element to export: table or card list
+    const table = document.getElementById("reportTable");
+    const cardList = document.getElementById("cardList");
+
+    // If no data
+    const hasTableRows = table.querySelectorAll("tbody tr").length > 0;
+    const hasCards = cardList.children.length > 0;
+    if (!hasTableRows && !hasCards) {
+        alert("No data to export!");
+        return;
+    }
+
+    // Create a clone to format for PDF (so we don't mess up visible page)
+    const cloneContainer = document.createElement("div");
+    cloneContainer.style.padding = "10px";
+    cloneContainer.style.fontFamily = "Arial, Helvetica, sans-serif";
+
+    // Add heading
+    const h = document.createElement("h2");
+    h.innerText = "Admin Report";
+    h.style.color = "#1e40af";
+    cloneContainer.appendChild(h);
+
+    // Add meta-line (branch/sem)
+    const meta = document.createElement("div");
+    meta.innerText = `Branch: ${filterBranch.value}  |  Semester: ${filterSemester.value}  |  Exported: ${new Date().toLocaleString()}`;
+    meta.style.marginBottom = "10px";
+    cloneContainer.appendChild(meta);
+
+    // Prefer table if present (better for wide data), else use card list
+    if (hasTableRows) {
+        // Clone the table and strip any UI-only columns if needed
+        const tableClone = table.cloneNode(true);
+        tableClone.style.width = "100%";
+        tableClone.style.borderCollapse = "collapse";
+        tableClone.querySelectorAll("th, td").forEach(cell => {
+            cell.style.border = "1px solid #ddd";
+            cell.style.padding = "6px";
+            cell.style.fontSize = "11px";
+        });
+        cloneContainer.appendChild(tableClone);
+    } else {
+        // clone cards
+        const cardsClone = cardList.cloneNode(true);
+        cardsClone.querySelectorAll(".record-card").forEach(c => {
+            c.style.borderLeft = "6px solid #1e40af";
+            c.style.marginBottom = "8px";
+            c.style.padding = "8px";
+        });
+        cloneContainer.appendChild(cardsClone);
+    }
+
+    // configure html2pdf options
+    const opt = {
+        margin:       [0.4, 0.4, 0.4, 0.4], // inches -> [top, left, bottom, right]
+        filename:     'admin_report.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: hasTableRows ? 'landscape' : 'portrait' }
+    };
+
+    // Trigger download
+    try {
+        // show a quick visual feedback (optional)
+        const prevTitle = document.title;
+        document.title = "Preparing PDF...";
+
+        await html2pdf().set(opt).from(cloneContainer).save();
+
+        document.title = prevTitle;
+    } catch (err) {
+        console.error("PDF export failed", err);
+        alert("PDF export failed. See console for details.");
+    }
+}
+
+async function loadData() {
+    const br = filterBranch.value;
+    const sem = filterSemester.value;
+
+    try {
+        const res = await fetch(`${API}/submissions?branch=${encodeURIComponent(br)}&semester=${encodeURIComponent(sem)}`);
+        if (!res.ok) throw new Error("Network response was not ok");
+        const data = await res.json();
+
+        const tb = document.getElementById("reportBody");
+        const cl = document.getElementById("cardList");
+
+        tb.innerHTML = "";
+        cl.innerHTML = "";
+
+        if (!Array.isArray(data) || data.length === 0) {
+            tb.innerHTML = "<tr><td colspan='12' style='text-align:center;'>No records</td></tr>";
+            return;
+        }
+
+        data.forEach((r,i)=>{
+            // safe fallback values
+            const mentor = r.mentorName || "-";
+            const branch = r.branch || "-";
+            const batch = r.batchNo || "-";
+            const student = r.studentName || "-";
+            const semester = r.semester || "-";
+            const section = r.section || "-";
+            const cytest = r.cytest || "-";
+            const comments = r.mentorComments || "-";
+            const counselling = r.counselling || "-";
+            const feedback = r.studentFeedback || "-";
+            const timeStr = r.createdAt ? new Date(r.createdAt).toLocaleString() : "-";
+
+            tb.innerHTML += `
+            <tr>
+                <td>${i+1}</td>
+                <td>${mentor}</td>
+                <td>${branch}</td>
+                <td>${batch}</td>
+                <td>${student}</td>
+                <td>${semester}</td>
+                <td>${section}</td>
+                <td>${cytest}</td>
+                <td>${comments}</td>
+                <td>${counselling}</td>
+                <td>${feedback}</td>
+                <td>${timeStr}</td>
+            </tr>
+            `;
+
+            cl.innerHTML += `
+            <div class="record-card">
+                <div><span class="label">Student:</span> <span class="value">${student}</span></div>
+                <div><span class="label">Mentor:</span> <span class="value">${mentor}</span></div>
+                <div><span class="label">Branch:</span> <span class="value">${branch}</span></div>
+                <div><span class="label">Batch:</span> <span class="value">${batch}</span></div>
+                <div><span class="label">Sem/Sec:</span> <span class="value">${semester}/${section}</span></div>
+                <div><span class="label">Exam:</span> <span class="value">${cytest}</span></div>
+                <div><span class="label">MentorComments:</span> <span class="value">${comments}</span></div>
+                <div><span class="label">Mentor Counselling:</span> <span class="value">${counselling}</span></div>
+                <div><span class="label">StudentFeedback:</span> <span class="value">${feedback}</span></div>
+            </div>`;
+        });
+    } catch (err) {
+        console.error(err);
+        alert("Failed to load data. Check console.");
+    }
+}
+
+// initial load
+loadData();
+</script>
+
+</body>
+</html>
